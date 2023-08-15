@@ -1,0 +1,10 @@
+model/ filter=lfs diff=lfs merge=lfs -text
+model/ggml-model-f16.bin filter=lfs diff=lfs merge=lfs -text
+model/ggml-model-f32.bin filter=lfs diff=lfs merge=lfs -text
+model/ggml-model-q4_0.bin filter=lfs diff=lfs merge=lfs -text
+model/ggml-model-q4_1.bin filter=lfs diff=lfs merge=lfs -text
+model/special_tokens_map.json filter=lfs diff=lfs merge=lfs -text
+model/tokenizer.json filter=lfs diff=lfs merge=lfs -text
+model/model.onnx filter=lfs diff=lfs merge=lfs -text
+model/tokenizer_config.json filter=lfs diff=lfs merge=lfs -text
+model/vocab.txt filter=lfs diff=lfs merge=lfs -text
