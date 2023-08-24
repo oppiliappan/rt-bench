@@ -1,9 +1,15 @@
+extern crate accelerate_src;
+
+use hf_hub::{api::sync::Api, Repo, RepoType};
 use ndarray::Axis;
 use ort::{
     tensor::{FromArray, InputTensor, OrtOwnedTensor},
     Environment, ExecutionProvider, GraphOptimizationLevel, LoggingLevel, SessionBuilder,
 };
 use std::{path::PathBuf, sync::Arc};
+
+mod candle;
+use candle::{device, normalize_l2, BertModel, Config};
 
 pub struct Ort {
     tokenizer: tokenizers::Tokenizer,
@@ -126,5 +132,63 @@ impl Ggml {
         output_request
             .embeddings
             .ok_or(anyhow::anyhow!("failed to embed"))
+    }
+}
+
+pub struct Candle {
+    model: BertModel,
+    tokenizer: tokenizers::Tokenizer,
+    device: candle_core::Device,
+}
+
+impl Candle {
+    pub fn new(cpu: bool) -> anyhow::Result<Self> {
+        use candle_nn::VarBuilder;
+
+        let device = device(cpu)?;
+        let model = "sentence-transformers/all-MiniLM-L6-v2".to_string();
+        let revision = "refs/pr/21".to_string();
+
+        let repo = Repo::with_revision(model, RepoType::Model, revision);
+        let (config_filename, tokenizer_filename, weights_filename) = {
+            let api = Api::new()?;
+            let api = api.repo(repo);
+            (
+                api.get("config.json")?,
+                api.get("tokenizer.json")?,
+                api.get("model.safetensors")?,
+            )
+        };
+        let config = std::fs::read_to_string(config_filename)?;
+        let config: Config = serde_json::from_str(&config)?;
+        let tokenizer =
+            tokenizers::Tokenizer::from_file(tokenizer_filename).map_err(anyhow::Error::msg)?;
+
+        let weights = unsafe { candle_core::safetensors::MmapedFile::new(weights_filename)? };
+        let weights = weights.deserialize()?;
+        let vb = VarBuilder::from_safetensors(vec![weights], candle::DTYPE, &device);
+        let model = BertModel::load(vb, &config)?;
+        Ok(Self {
+            model,
+            tokenizer,
+            device,
+        })
+    }
+
+    pub fn embed(&mut self, sequence: &str) -> anyhow::Result<Vec<f32>> {
+        let tokenizer = self.tokenizer.with_padding(None).with_truncation(None);
+        let tokens = tokenizer
+            .encode(sequence, true)
+            .map_err(anyhow::Error::msg)?
+            .get_ids()
+            .to_vec();
+        let token_ids = candle_core::Tensor::new(&tokens[..], &self.device)?.unsqueeze(0)?;
+        let token_type_ids = token_ids.zeros_like()?;
+
+        let embeddings = self.model.forward(&token_ids, &token_type_ids)?;
+        let (n_tokens, _hidden_size) = embeddings.dims2()?;
+        let embeddings = (embeddings.sum(0)? / (n_tokens as f64))?;
+        let embeddings = normalize_l2(&embeddings)?;
+        Ok(embeddings.to_vec1()?)
     }
 }
