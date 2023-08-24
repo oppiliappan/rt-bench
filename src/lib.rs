@@ -186,9 +186,9 @@ impl Candle {
         let token_type_ids = token_ids.zeros_like()?;
 
         let embeddings = self.model.forward(&token_ids, &token_type_ids)?;
-        let (n_tokens, _hidden_size) = embeddings.dims2()?;
-        let embeddings = (embeddings.sum(0)? / (n_tokens as f64))?;
+        let (_n_batch, n_tokens, _hidden_size) = embeddings.dims3()?;
+        let embeddings = (embeddings.sum(1)? / (n_tokens as f64))?;
         let embeddings = normalize_l2(&embeddings)?;
-        Ok(embeddings.to_vec1()?)
+        Ok(embeddings.squeeze(0)?.to_vec1()?)
     }
 }
