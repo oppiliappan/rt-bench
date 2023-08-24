@@ -69,8 +69,16 @@ impl Ort {
 
         let output_tensor: OrtOwnedTensor<f32, _> = outputs[0].try_extract().unwrap();
         let sequence_embedding = &*output_tensor.view();
-        let pooled = sequence_embedding.mean_axis(Axis(1)).unwrap();
-        Ok(pooled.to_owned().as_slice().unwrap().to_vec())
+        let pooled = sequence_embedding
+            .mean_axis(Axis(1))
+            .unwrap()
+            .to_owned()
+            .as_slice()
+            .unwrap()
+            .to_vec();
+        let norm = pooled.iter().map(|x| x.powi(2)).sum::<f32>().sqrt();
+        let pooled = pooled.iter().map(|x| x / norm).collect::<Vec<_>>();
+        Ok(pooled)
     }
 }
 
