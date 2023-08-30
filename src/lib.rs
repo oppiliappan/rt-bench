@@ -1,4 +1,4 @@
-extern crate accelerate_src;
+// extern crate accelerate_src;
 
 use hf_hub::{api::sync::Api, Repo, RepoType};
 use ndarray::Axis;
@@ -84,6 +84,7 @@ impl Ort {
 
 pub struct Ggml {
     model: Box<dyn llm::Model>,
+    inference_session: llm::InferenceSession,
 }
 
 pub enum Acceleration {
@@ -116,14 +117,18 @@ impl Ggml {
             panic!("Failed to load {model_architecture} model from {model_path:?}: {err}")
         });
 
-        Self { model }
-    }
-
-    pub fn embed(&self, sequence: &str) -> anyhow::Result<Vec<f32>> {
         let session_config = llm::InferenceSessionConfig {
             ..Default::default()
         };
-        let mut session = self.model.start_session(session_config);
+        let inference_session = model.start_session(session_config);
+
+        Self {
+            model,
+            inference_session,
+        }
+    }
+
+    pub fn embed(&mut self, sequence: &str) -> anyhow::Result<Vec<f32>> {
         let mut output_request = llm::OutputRequest {
             all_logits: None,
             embeddings: Some(Vec::new()),
@@ -135,8 +140,11 @@ impl Ggml {
             .iter()
             .map(|(_, tok)| *tok)
             .collect::<Vec<_>>();
-        self.model
-            .evaluate(&mut session, &query_token_ids, &mut output_request);
+        self.model.evaluate(
+            &mut self.inference_session,
+            &query_token_ids,
+            &mut output_request,
+        );
         output_request
             .embeddings
             .ok_or(anyhow::anyhow!("failed to embed"))
