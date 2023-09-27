@@ -1,4 +1,4 @@
-// extern crate accelerate_src;
+extern crate accelerate_src;
 
 use hf_hub::{api::sync::Api, Repo, RepoType};
 use ndarray::Axis;
@@ -95,13 +95,12 @@ pub enum Acceleration {
 impl Ggml {
     pub fn new(acc: Acceleration) -> Self {
         let tokenizer_source =
-            llm::TokenizerSource::HuggingFaceTokenizerFile(PathBuf::from("model/tokenizer.json"));
+            llm::TokenizerSource::HuggingFaceTokenizerFile(PathBuf::from("model/updated_tokenizers.json"));
         let model_architecture = llm::ModelArchitecture::Bert;
         let model_path = PathBuf::from("model/ggml-model-q4_0.bin");
 
         // Load model
         let mut model_params = llm::ModelParameters::default();
-        model_params.context_size = 256;
         model_params.use_gpu = match acc {
             Acceleration::None => false,
             Acceleration::Gpu => true,
@@ -135,11 +134,13 @@ impl Ggml {
         };
         let vocab = self.model.tokenizer();
         let beginning_of_sentence = true;
+
         let query_token_ids = vocab
             .tokenize(sequence, beginning_of_sentence)?
             .iter()
             .map(|(_, tok)| *tok)
             .collect::<Vec<_>>();
+
         self.model.evaluate(
             &mut self.inference_session,
             &query_token_ids,
@@ -148,6 +149,29 @@ impl Ggml {
         output_request
             .embeddings
             .ok_or(anyhow::anyhow!("failed to embed"))
+    }
+
+    pub fn batch_embed(&mut self, sequences: &[&str]) -> anyhow::Result<Vec<f32>> {
+	    let mut output_request = llm::OutputRequest {
+			all_logits: None,
+		    embeddings: Some(Vec::new()),
+	    };
+
+	    let vocab = self.model.tokenizer();
+	    let beginning_of_sentence = true;
+
+	    let query_token_ids = sequences.iter().map( |&sequence| vocab
+			    .tokenize(&sequence, beginning_of_sentence)
+			    .unwrap()
+			    .iter()
+			    .map(|(_, tok)| *tok)
+			    .collect::<Vec<_>>()).collect::<Vec<_>>();
+	    let query_token_ids: Vec<_> = query_token_ids.iter().map(AsRef::as_ref).collect();
+	    self.model
+		    .batch_evaluate(&mut self.inference_session, &query_token_ids, &mut output_request);
+	    // let embedding: Vec<Vec<f32>> = output_request.embeddings.unwrap().chunks(384).map(|chunk| chunk.to_vec()).collect(); 
+	    Ok(output_request.embeddings.unwrap())
+
     }
 }
 

@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "accelerate-src"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "415ed64958754dbe991900f3940677e6a7eefb4d7367afd70d642677b0c7d19d"
+
+[[package]]
 name = "addr2line"
 version = "0.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -106,6 +112,7 @@ checksum = "8c3c1a368f70d6cf7302d78f8f7093da241fb8e8807c05cc9e51a125895a6d5b"
 name = "benches"
 version = "0.1.0"
 dependencies = [
+ "accelerate-src",
  "anyhow",
  "candle-core",
  "candle-nn",
@@ -1251,6 +1258,7 @@ dependencies = [
  "llm-gptneox",
  "llm-llama",
  "llm-mpt",
+ "ndarray",
  "serde",
  "tracing",
 ]
@@ -1280,6 +1288,7 @@ version = "0.2.0-dev"
 dependencies = [
  "bytemuck",
  "llm-base",
+ "num-traits",
  "tracing",
 ]
 
