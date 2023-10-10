@@ -13,7 +13,8 @@ anyhow = "1.0.72"
 # llm = { git = "https://github.com/nerdypepper/llm", branch = "add-bert-arch", features = ["bert", "cublas"] }
 # llm = { path = "/Users/gabriel/work/research/llm/crates/llm", features = ["bert", "cublas"] }
 # llm = { path = "/home/np/bloop/ggml/llm/crates/llm", features = ["bert", "cublas"] }
-llm = { path = "/Users/administrator/code/llm/crates/llm", features = ["bert", "metal"] }
+# llm = { path = "/Users/administrator/code/llm/crates/llm", features = ["bert", "metal"] }
+llm = { git = "https://github.com/bloopai/llm", branch = "batch-metal-kernels", default-features = false, features = ["bert"], optional = true }
 hf-hub = "0.2.0"
 candle-core = "0.1.2"
 candle-nn = "0.1.2"

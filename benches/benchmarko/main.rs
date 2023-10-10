@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 
-use benches::{Acceleration, Ggml, Ort, Candle};
+use benches::{Acceleration, Candle, Ggml, Ort};
 
 static CHUNKS: [&str; 10] = [
   "impl RepoFile {\n    #[allow(clippy::too_many_arguments)]\n    fn build_document(\n        mut self,\n        schema: &File,\n        repo_name: &str,\n        relative_path: &Path,\n        repo_disk_path: &Path,\n        semantic_cache_key: String,\n        tantivy_cache_key: String,\n        entry_pathbuf: &Path,\n        repo_ref: &str,\n        last_commit: u64,\n        repo_metadata: &RepoMetadata,\n        file_cache: &FileCache,\n    ) -> Option<tantivy::schema::Document> {\n        let relative_path_str = relative_path.to_string_lossy().to_string();\n        #[cfg(windows)]\n        let relative_path_str = relative_path_str.replace('\\\\', \"/\");\n\n        let branches = self.branches.join(\"\\n\");\n        let lang_str = repo_metadata\n            .langs\n            ",
@@ -15,21 +15,6 @@ static CHUNKS: [&str; 10] = [
   "import { mapFileResult, mapRanges } from '../../mappers/results';\nimport { getHoverables } from '../../services/api';\nimport { buildRepoQuery } from '../../utils';\nimport { SearchContext } from '../../context/searchContext';\nimport { FileModalContext } from '../../context/fileModalContext';\nimport { AppNavigationContext } from '../../context/appNavigationContext';\nimport ResultModal from './index';\n\ntype Props = {\n  repoName: string;\n};\n\nconst FileModalContainer = ({ repoName }: Props) => {\n  const { path, closeFileModalOpen, isFileModalOpen } =\n    useContext(FileModalContext);\n  "
 ];
 
-// pub fn onnx_embed_benchmark(c: &mut Criterion) {
-//     let ort = Ort::new().unwrap();
-//     c.bench_function("onnx", |b| b.iter(|| ort.embed(black_box(CHUNK)).unwrap()));
-// }
-//
-// pub fn ggml_gpu_embed_benchmark(c: &mut Criterion) {
-//     let ggml = Ggml::new(Acceleration::Gpu);
-//     c.bench_function("ggml", |b| b.iter(|| ggml.embed(black_box(CHUNK)).unwrap()));
-// }
-//
-// pub fn ggml_embed_benchmark(c: &mut Criterion) {
-//     let ggml = Ggml::new(Acceleration::None);
-//     c.bench_function("ggml", |b| b.iter(|| ggml.embed(black_box(CHUNK)).unwrap()));
-// }
-
 pub fn bench_embedding(c: &mut Criterion) {
     let mut group = c.benchmark_group("embedding");
     let ort = Ort::new().unwrap();
@@ -37,50 +22,43 @@ pub fn bench_embedding(c: &mut Criterion) {
     let mut ggml = Ggml::new(Acceleration::None);
     let mut candle = Candle::new(true).unwrap();
 
-    group.bench_with_input(BenchmarkId::new("ggml_gpu_batched", 0), &CHUNKS, |b, chunks| {
-        b.iter(|| ggml_gpu.batch_embed(chunks))
-    });
+    group.bench_with_input(
+        BenchmarkId::new("ggml_gpu_batched", 0),
+        &CHUNKS,
+        |b, chunks| b.iter(|| ggml_gpu.batch_embed(chunks)),
+    );
 
     group.bench_with_input(BenchmarkId::new("onnx", 0), &CHUNKS, |b, chunks| {
-        b.iter(|| for c in chunks { ort.embed(c); } )
+        b.iter(|| {
+            for c in chunks {
+                ort.embed(c);
+            }
+        })
     });
 
     group.bench_with_input(BenchmarkId::new("ggml_gpu", 0), &CHUNKS, |b, chunks| {
-        b.iter(|| for c in chunks { ggml_gpu.embed(c); })
+        b.iter(|| {
+            for c in chunks {
+                ggml_gpu.embed(c);
+            }
+        })
     });
 
     group.bench_with_input(BenchmarkId::new("ggml", 0), &CHUNKS, |b, chunks| {
-        b.iter(|| for c in chunks { ggml.embed(c); })
+        b.iter(|| {
+            for c in chunks {
+                ggml.embed(c);
+            }
+        })
     });
 
     group.bench_with_input(BenchmarkId::new("candle", 0), &CHUNKS, |b, chunks| {
-        b.iter(|| for c in chunks { candle.embed(c); })
+        b.iter(|| {
+            for c in chunks {
+                candle.embed(c);
+            }
+        })
     });
-
-    // for (i, chunk) in CHUNKS.iter().enumerate() {
-    //     group.bench_with_input(BenchmarkId::new("onnx", i), chunk, |b, chunk| {
-    //         b.iter(|| ort.embed(chunk))
-    //     });
-
-    //     group.bench_with_input(BenchmarkId::new("ggml_gpu", i), chunk, |b, chunk| {
-    //         b.iter(|| ggml_gpu.embed(chunk))
-    //     });
-
-    //     group.bench_with_input(BenchmarkId::new("ggml", i), chunk, |b, chunk| {
-    //         b.iter(|| ggml.embed(chunk))
-    //     });
-
-    //     group.bench_with_input(BenchmarkId::new("candle", i), chunk, |b, chunk| {
-    //         b.iter(|| candle.embed(chunk))
-    //     });
-    // }
-
-    // group.bench_with_input();
-    // group.bench_function("onnx", |b| b.iter(|| ort.embed(black_box(CHUNK)).unwrap()));
-    // group.bench_function("ggml_gpu", |b| {
-    //     b.iter(|| ggml_gpu.embed(black_box(CHUNK)).unwrap())
-    // });
-    // group.bench_function("ggml", |b| b.iter(|| ggml.embed(black_box(CHUNK)).unwrap()));
 
     group.finish();
 }
